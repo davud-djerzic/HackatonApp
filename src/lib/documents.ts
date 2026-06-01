@@ -5,6 +5,7 @@ export type StoredDocument = {
   title: string;
   category: string;
   date: string;
+  storagePath: string;
   source: "Doktor" | "Licni upload";
   status: "Novi nalaz" | "Arhivirano";
   note: string;
@@ -19,7 +20,7 @@ export async function loadMyDocuments(): Promise<StoredDocument[]> {
   const client = requireSupabase();
   const { data, error } = await client
     .from("medical_documents")
-    .select("id, title, category, source, notes, created_at")
+    .select("id, title, category, source, notes, storage_path, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -28,10 +29,19 @@ export async function loadMyDocuments(): Promise<StoredDocument[]> {
     title: document.title,
     category: document.category,
     date: new Intl.DateTimeFormat("bs-BA").format(new Date(document.created_at)),
+    storagePath: document.storage_path,
     source: document.source === "patient_upload" ? "Licni upload" : "Doktor",
     status: "Arhivirano",
     note: document.notes || "",
   }));
+}
+
+export async function createDocumentPreviewUrl(storagePath: string) {
+  const { data, error } = await requireSupabase().storage
+    .from("medical-documents")
+    .createSignedUrl(storagePath, 60 * 5);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
 export async function uploadOwnDocument(file: File) {

@@ -1,10 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "jsr:@supabase/supabase-js@2/cors";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -42,6 +40,8 @@ Deno.serve(async (request) => {
   try {
     const authorization = request.headers.get("Authorization");
     if (!authorization) return json({ error: "Prijava je obavezna." }, 401);
+    const accessToken = authorization.replace(/^Bearer\s+/i, "");
+    if (!accessToken || accessToken === authorization) return json({ error: "Prijava nije validna." }, 401);
 
     const supabaseUrl = requiredSecret("SUPABASE_URL");
     const supabaseAnonKey = requiredSecret("SUPABASE_ANON_KEY");
@@ -54,17 +54,17 @@ Deno.serve(async (request) => {
       global: { headers: { Authorization: authorization } },
     });
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await userClient.auth.getUser(accessToken);
     if (userError || !user) return json({ error: "Prijava je istekla." }, 401);
 
     const form = await request.formData();
-    const patientId = String(form.get("patientId") ?? "");
+    const patientEmail = String(form.get("patientEmail") ?? "").trim().toLowerCase();
     const title = String(form.get("title") ?? "").trim();
     const category = String(form.get("category") ?? "").trim();
     const notes = String(form.get("notes") ?? "").trim();
     const file = form.get("file");
 
-    if (!uuidPattern.test(patientId)) return json({ error: "Odaberite pacijenta." }, 400);
+    if (!patientEmail || !patientEmail.includes("@")) return json({ error: "Unesite validan email pacijenta." }, 400);
     if (!title || title.length > 160) return json({ error: "Naziv nalaza nije validan." }, 400);
     if (!category || category.length > 80) return json({ error: "Vrsta dokumenta nije validna." }, 400);
     if (!(file instanceof File)) return json({ error: "PDF nalaz je obavezan." }, 400);
@@ -75,19 +75,15 @@ Deno.serve(async (request) => {
       .from("profiles").select("id, full_name, role").eq("id", user.id).single();
     if (!doctor || doctor.role !== "doctor") return json({ error: "Samo doktor moze poslati nalaz." }, 403);
 
-    const { data: access } = await admin
-      .from("doctor_patient_access").select("patient_id")
-      .eq("doctor_id", user.id).eq("patient_id", patientId).eq("active", true).maybeSingle();
-    if (!access) return json({ error: "Nemate aktivan pristup ovom pacijentu." }, 403);
+    const { data: authUsers, error: authUsersError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (authUsersError) throw authUsersError;
+    const authUser = authUsers.users.find((candidate) => candidate.email?.toLowerCase() === patientEmail);
+    if (!authUser) return json({ error: "Pacijent sa ovom email adresom nema CareTrace nalog." }, 404);
+    const patientId = authUser.id;
 
-    const [{ data: patient }, { data: authUser, error: authUserError }] = await Promise.all([
-      admin.from("profiles").select("id, full_name, role").eq("id", patientId).single(),
-      admin.auth.admin.getUserById(patientId),
-    ]);
-    const patientEmail = authUser.user?.email;
-    if (!patient || patient.role !== "patient" || authUserError || !patientEmail) {
-      return json({ error: "Pacijent nema validan profil i email adresu." }, 400);
-    }
+    const { data: patient } = await admin
+      .from("profiles").select("id, full_name, role").eq("id", patientId).single();
+    if (!patient || patient.role !== "patient") return json({ error: "Email ne pripada CareTrace pacijentu." }, 400);
 
     const fileName = cleanFileName(file.name);
     documentPath = `${patientId}/${crypto.randomUUID()}/${fileName}`;

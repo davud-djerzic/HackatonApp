@@ -7,9 +7,9 @@ attachment.
 
 ## Produkcijski tok
 
-1. Doktor se prijavi kroz Supabase Auth i odabere povezanog pacijenta.
-2. `send-patient-report` Edge Function provjeri JWT, ulogu doktora i aktivnu
-   vezu u `doctor_patient_access`.
+1. Doktor se prijavi kroz Supabase Auth i unese email registrovanog pacijenta.
+2. `send-patient-report` Edge Function provjeri JWT, ulogu doktora i pronadje
+   CareTrace pacijenta prema email adresi.
 3. PDF se sprema u privatni `medical-documents` Storage bucket.
 4. Baza dobija dokument, obavijest i audit zapis email isporuke.
 5. SendGrid Mail Send API salje pacijentu email sa linkom na CareTrace login.
@@ -49,12 +49,9 @@ vrijednosti:
 { "full_name": "Emir Hadzic", "role": "patient" }
 ```
 
-6. Povezite doktora i pacijenta u SQL Editoru koristeci njihove Auth UUID-e:
-
-```sql
-insert into public.doctor_patient_access (doctor_id, patient_id)
-values ('DOCTOR_AUTH_UUID', 'PATIENT_AUTH_UUID');
-```
+Tabela `doctor_patient_access` ostaje dostupna za buduci tok u kojem pacijent
+moze odobriti doktoru pregled prethodnih nalaza. Trenutno slanje novog PDF nalaza
+na email registrovanog pacijenta ne zahtijeva trajnu vezu.
 
 ## SendGrid
 

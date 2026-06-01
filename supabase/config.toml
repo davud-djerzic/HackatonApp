@@ -1,7 +1,7 @@
 project_id = "caretrace"
 
 [functions.send-patient-report]
-verify_jwt = true
+verify_jwt = false
 
 [functions.sendgrid-events]
 verify_jwt = false
