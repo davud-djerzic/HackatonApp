@@ -1,0 +1,82 @@
+.source-references {
+  margin-top: 13px;
+  border-top: 1px solid var(--line);
+  padding-top: 11px;
+}
+
+.source-references > p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.source-reference {
+  margin-top: 8px;
+  border: 1px solid #dce7e4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.source-reference header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.source-reference small,
+.source-reference strong,
+.source-reference span {
+  display: block;
+}
+
+.source-reference small {
+  color: var(--brand);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.source-reference strong {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.source-reference span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.source-reference blockquote {
+  margin: 9px 0 0;
+  border-left: 3px solid #6ba99b;
+  padding: 8px 10px;
+  background: #f3f8f6;
+  color: #405851;
+  font-size: 10px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.shared-timeline article.highlighted-source {
+  margin-left: -8px;
+  border-radius: 8px;
+  padding-right: 8px;
+  padding-left: 8px;
+  background: #fff5cf;
+  box-shadow: 0 0 0 1px #ecd78b;
+}
+
+.shared-timeline article.highlighted-source .timeline-marker {
+  background: #f5d76e;
+  color: #725700;
+}
+
+@media (max-width: 650px) {
+  .source-reference header {
+    flex-direction: column;
+  }
+}

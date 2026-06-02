@@ -7,13 +7,13 @@ type Role = "patient" | "doctor";
 
 function authErrorMessage(message: string) {
   if (message.toLowerCase().includes("email rate limit exceeded")) {
-    return "Supabase je privremeno blokirao slanje auth emailova. U Supabase Dashboardu iskljucite Confirm email za testiranje bez validacije emaila.";
+    return "Supabase temporarily blocked authentication emails. Disable Confirm email in the Supabase Dashboard to test without email verification.";
   }
   if (message.toLowerCase().includes("user already registered")) {
-    return "Korisnik sa ovom email adresom vec postoji. Otvorite karticu Prijava.";
+    return "An account with this email address already exists. Open the Sign in tab.";
   }
   if (message.toLowerCase().includes("invalid login credentials")) {
-    return "Email ili lozinka nisu ispravni.";
+    return "The email address or password is incorrect.";
   }
   return message;
 }
@@ -44,12 +44,12 @@ function AuthPanel() {
 
     if (mode === "signUp") {
       if (password.length < 8) {
-        setError("Lozinka mora imati najmanje 8 znakova.");
+        setError("The password must contain at least 8 characters.");
         setLoading(false);
         return;
       }
       if (password !== confirmPassword) {
-        setError("Lozinke se ne podudaraju.");
+        setError("The passwords do not match.");
         setLoading(false);
         return;
       }
@@ -62,9 +62,9 @@ function AuthPanel() {
       if (authError) {
         setError(authErrorMessage(authError.message));
       } else if (data.session) {
-        setMessage("Nalog je kreiran. Prijavljeni ste u CareTrace.");
+        setMessage("Your account has been created. You are signed in to HOPE.");
       } else {
-        setMessage("Nalog je kreiran, ali Supabase jos trazi email potvrdu. Iskljucite Confirm email u Auth postavkama projekta.");
+        setMessage("Your account has been created, but Supabase still requires email confirmation. Disable Confirm email in the project authentication settings.");
       }
       setLoading(false);
       return;
@@ -78,46 +78,46 @@ function AuthPanel() {
   return <main className="auth-shell">
     <section className="auth-layout">
       <aside className="auth-intro">
-        <div className="auth-brand"><b>C</b><strong>CareTrace</strong></div>
-        <h1>Medicinska dokumentacija na jednom sigurnom mjestu.</h1>
-        <p>Pacijenti cuvaju nalaze, a doktori sigurno dostavljaju dokumente povezanim pacijentima.</p>
-        <div><span>1</span><small>Privatna pohrana medicinskih dokumenata</small></div>
-        <div><span>2</span><small>Odvojeni pristup za pacijente i doktore</small></div>
-        <div><span>3</span><small>Email obavijesti bez slanja osjetljivih PDF priloga</small></div>
+        <div className="auth-brand"><b>H</b><strong>HOPE</strong></div>
+        <h1>Medical records in one secure place.</h1>
+        <p>Patients keep their records organized while doctors securely deliver documents to registered patients.</p>
+        <div><span>1</span><small>Private storage for medical documents</small></div>
+        <div><span>2</span><small>Separate access for patients and doctors</small></div>
+        <div><span>3</span><small>Email notifications without sensitive PDF attachments</small></div>
       </aside>
 
       <form className="panel auth-panel" onSubmit={submit}>
-        <p className="eyebrow">SIGURAN PRISTUP</p>
-        <h2>{mode === "signIn" ? "Prijava u CareTrace" : "Kreirajte CareTrace nalog"}</h2>
-        <p>{mode === "signIn" ? "Unesite podatke za pristup svom nalogu." : "Odaberite ulogu i unesite osnovne podatke."}</p>
+        <p className="eyebrow">SECURE ACCESS</p>
+        <h2>{mode === "signIn" ? "Sign in to HOPE" : "Create a HOPE account"}</h2>
+        <p>{mode === "signIn" ? "Enter your details to access your account." : "Choose your role and enter your basic information."}</p>
 
         <div className="auth-tabs">
-          <button type="button" className={mode === "signIn" ? "selected" : ""} onClick={() => switchMode("signIn")}>Prijava</button>
-          <button type="button" className={mode === "signUp" ? "selected" : ""} onClick={() => switchMode("signUp")}>Registracija</button>
+          <button type="button" className={mode === "signIn" ? "selected" : ""} onClick={() => switchMode("signIn")}>Sign in</button>
+          <button type="button" className={mode === "signUp" ? "selected" : ""} onClick={() => switchMode("signUp")}>Register</button>
         </div>
 
         {mode === "signUp" && <>
-          <label>Registrujem se kao</label>
+          <label>I am registering as</label>
           <div className="role-options">
-            <button type="button" className={role === "patient" ? "selected" : ""} onClick={() => setRole("patient")}><b>P</b><span><strong>Pacijent</strong><small>Licni zdravstveni dosije</small></span></button>
-            <button type="button" className={role === "doctor" ? "selected" : ""} onClick={() => setRole("doctor")}><b>D</b><span><strong>Doktor</strong><small>Ordinacija i nalazi</small></span></button>
+            <button type="button" className={role === "patient" ? "selected" : ""} onClick={() => setRole("patient")}><b>P</b><span><strong>Patient</strong><small>Personal health record</small></span></button>
+            <button type="button" className={role === "doctor" ? "selected" : ""} onClick={() => setRole("doctor")}><b>D</b><span><strong>Doctor</strong><small>Practice and medical records</small></span></button>
           </div>
-          <label htmlFor="full-name">Ime i prezime</label>
+          <label htmlFor="full-name">Full name</label>
           <input id="full-name" required value={fullName} onChange={(event) => setFullName(event.target.value)} autoComplete="name" />
         </>}
 
-        <label htmlFor="email">Email adresa</label>
+        <label htmlFor="email">Email address</label>
         <input id="email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
-        <label htmlFor="password">Lozinka</label>
+        <label htmlFor="password">Password</label>
         <input id="password" required minLength={mode === "signUp" ? 8 : undefined} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === "signIn" ? "current-password" : "new-password"} />
         {mode === "signUp" && <>
-          <label htmlFor="confirm-password">Potvrdite lozinku</label>
+          <label htmlFor="confirm-password">Confirm password</label>
           <input id="confirm-password" required minLength={8} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" />
         </>}
 
         {error && <p className="form-error">{error}</p>}
         {message && <p className="form-message">{message}</p>}
-        <button className="primary auth-submit" disabled={loading}>{loading ? "Molimo sacekajte..." : mode === "signIn" ? "Prijavi se" : "Kreiraj nalog"}</button>
+        <button className="primary auth-submit" disabled={loading}>{loading ? "Please wait..." : mode === "signIn" ? "Sign in" : "Create account"}</button>
       </form>
     </section>
   </main>;

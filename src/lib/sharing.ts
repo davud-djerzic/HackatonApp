@@ -1,4 +1,6 @@
 import { isSupabaseConfigured, supabase } from "./supabase";
+import { displayCategory } from "./documents";
+import { displaySpecialty } from "./specialties";
 
 export type GeneratedShareCode = {
   shareCode: string;
@@ -16,25 +18,30 @@ export type SharedDocument = {
   id: string;
   title: string;
   category: string;
+  specialty: string;
   date: string;
   storagePath: string;
 };
 
 function requireSupabase() {
-  if (!supabase || !isSupabaseConfigured) throw new Error("Supabase nije konfigurisan.");
+  if (!supabase || !isSupabaseConfigured) throw new Error("Supabase is not configured.");
   return supabase;
+}
+
+function isMissingSpecialtyColumn(error: { message?: string; code?: string }) {
+  return error.code === "42703" || error.code === "PGRST204" || Boolean(error.message?.includes("specialty"));
 }
 
 export async function generatePatientShareCode(): Promise<GeneratedShareCode> {
   const { data, error } = await requireSupabase().rpc("generate_patient_share_code");
   if (error) {
     if (error.code === "PGRST202" || error.message.includes("generate_patient_share_code")) {
-      throw new Error("Funkcija za kod nije instalirana u Supabase bazi. Pokrenite supabase/share-code-flow.sql u SQL Editoru.");
+      throw new Error("The share code function is not installed in the Supabase database. Run supabase/share-code-flow.sql in the SQL Editor.");
     }
     throw error;
   }
   const result = data?.[0];
-  if (!result) throw new Error("Kod nije generisan.");
+  if (!result) throw new Error("The share code was not generated.");
   return { shareCode: result.share_code, expiresAt: result.expires_at };
 }
 
@@ -42,13 +49,13 @@ export async function redeemPatientShareCode(shareCode: string): Promise<SharedP
   const { data, error } = await requireSupabase().rpc("redeem_patient_share_code", { share_code: shareCode });
   if (error) {
     if (error.code === "PGRST202" || error.message.includes("redeem_patient_share_code")) {
-      throw new Error("Funkcija za pristup nije instalirana u Supabase bazi. Pokrenite supabase/share-code-flow.sql u SQL Editoru.");
+      throw new Error("The record access function is not installed in the Supabase database. Run supabase/share-code-flow.sql in the SQL Editor.");
     }
-    if (error.message.includes("invalid or expired")) throw new Error("Kod nije validan ili je istekao.");
+    if (error.message.includes("invalid or expired")) throw new Error("The code is invalid or has expired.");
     throw error;
   }
   const result = data?.[0];
-  if (!result) throw new Error("Pristup nije aktiviran.");
+  if (!result) throw new Error("Access was not activated.");
   return {
     shareId: result.share_id,
     patientId: result.patient_id,
@@ -79,24 +86,33 @@ export async function loadActiveSharedPatients(): Promise<SharedPatient[]> {
   return shares.map((share) => ({
     shareId: share.id,
     patientId: share.patient_id,
-    patientName: names.get(share.patient_id) ?? "Pacijent",
+    patientName: names.get(share.patient_id) ?? "Patient",
     accessExpiresAt: share.access_expires_at,
   }));
 }
 
 export async function loadSharedPatientDocuments(patientId: string): Promise<SharedDocument[]> {
-  const { data, error } = await requireSupabase()
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("medical_documents")
+    .select("id, title, category, specialty, storage_path, created_at")
+    .eq("patient_id", patientId)
+    .order("created_at", { ascending: false });
+  if (error && !isMissingSpecialtyColumn(error)) throw error;
+  const fallback = data ? null : await client
     .from("medical_documents")
     .select("id, title, category, storage_path, created_at")
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data.map((document) => ({
+  if (fallback?.error) throw fallback.error;
+  const documents = data ?? fallback?.data ?? [];
+  return documents.map((document) => ({
     id: document.id,
     title: document.title,
-    category: document.category,
+    category: displayCategory(document.category),
+    specialty: displaySpecialty("specialty" in document && typeof document.specialty === "string" ? document.specialty : null),
     storagePath: document.storage_path,
-    date: new Intl.DateTimeFormat("bs-BA").format(new Date(document.created_at)),
+    date: new Intl.DateTimeFormat("en-GB").format(new Date(document.created_at)),
   }));
 }
 

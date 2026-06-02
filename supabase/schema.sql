@@ -50,6 +50,7 @@ create table if not exists public.medical_documents (
   uploaded_by uuid references public.profiles(id) on delete set null,
   title text not null,
   category text not null,
+  specialty text not null default 'Unclassified',
   storage_path text not null,
   source text not null check (source in ('email', 'patient_upload', 'doctor_upload')),
   sender_email text,
@@ -100,6 +101,48 @@ create table if not exists public.document_access_log (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.lab_results (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid not null references public.profiles(id) on delete cascade,
+  document_id uuid references public.medical_documents(id) on delete set null,
+  result_date date not null,
+  parameter_name text not null,
+  measured_value numeric not null,
+  unit text not null,
+  reference_low numeric,
+  reference_high numeric,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.patient_symptoms (
+  id uuid primary key default gen_random_uuid(),
+  patient_id uuid not null references public.profiles(id) on delete cascade,
+  symptom_name text not null,
+  severity integer not null check (severity between 1 and 10),
+  started_at date,
+  notes text,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists patient_symptoms_patient_created_idx
+on public.patient_symptoms (patient_id, created_at desc);
+
+create index if not exists lab_results_patient_parameter_date_idx
+on public.lab_results (patient_id, parameter_name, result_date desc);
+
+alter table public.medical_documents
+  add column if not exists specialty text not null default 'Unclassified',
+  add column if not exists lab_extraction_status text not null default 'not_requested'
+    check (lab_extraction_status in ('not_requested', 'pending', 'completed', 'no_results', 'failed', 'not_configured')),
+  add column if not exists lab_extraction_count integer not null default 0,
+  add column if not exists lab_extraction_error text,
+  add column if not exists extracted_document_text text,
+  add column if not exists extracted_document_json jsonb;
+
+create index if not exists medical_documents_patient_specialty_created_idx
+on public.medical_documents (patient_id, specialty, created_at desc);
+
 create or replace function public.generate_patient_share_code()
 returns table (share_code text, expires_at timestamptz)
 language plpgsql
@@ -108,6 +151,7 @@ set search_path = ''
 as $$
 declare
   generated_code text;
+  expiration timestamptz := now() + interval '10 minutes';
 begin
   if not exists (
     select 1 from public.profiles
@@ -126,10 +170,10 @@ begin
   values (
     (select auth.uid()),
     encode(sha256(convert_to(generated_code, 'UTF8')), 'hex'),
-    now() + interval '10 minutes'
+    expiration
   );
 
-  return query select generated_code, now() + interval '10 minutes';
+  return query select generated_code, expiration;
 end;
 $$;
 
@@ -141,6 +185,7 @@ set search_path = ''
 as $$
 declare
   selected_share public.patient_record_shares;
+  access_expiration timestamptz := now() + interval '60 minutes';
 begin
   if not exists (
     select 1 from public.profiles
@@ -164,11 +209,11 @@ begin
   set doctor_id = (select auth.uid()),
       status = 'active',
       claimed_at = now(),
-      access_expires_at = now() + interval '60 minutes'
+      access_expires_at = access_expiration
   where id = selected_share.id;
 
   return query
-  select selected_share.id, profile.id, profile.full_name, now() + interval '60 minutes'
+  select selected_share.id, profile.id, profile.full_name, access_expiration
   from public.profiles profile
   where profile.id = selected_share.patient_id;
 end;
@@ -299,6 +344,8 @@ alter table public.email_ingest_events enable row level security;
 alter table public.doctor_patient_access enable row level security;
 alter table public.patient_record_shares enable row level security;
 alter table public.document_access_log enable row level security;
+alter table public.lab_results enable row level security;
+alter table public.patient_symptoms enable row level security;
 alter table public.notifications enable row level security;
 alter table public.email_deliveries enable row level security;
 alter table public.email_delivery_events enable row level security;
@@ -376,6 +423,43 @@ using (
     select 1 from public.medical_documents document
     where document.id = document_access_log.document_id
       and document.patient_id = (select auth.uid())
+  )
+);
+
+create policy "Patients view own lab results"
+on public.lab_results for select
+to authenticated
+using ((select auth.uid()) = patient_id);
+
+create policy "Doctors view temporarily shared lab results"
+on public.lab_results for select
+to authenticated
+using (
+  exists (
+    select 1 from public.patient_record_shares share
+    where share.doctor_id = (select auth.uid())
+      and share.patient_id = lab_results.patient_id
+      and share.status = 'active'
+      and share.access_expires_at > now()
+  )
+);
+
+create policy "Patients manage own symptoms"
+on public.patient_symptoms for all
+to authenticated
+using ((select auth.uid()) = patient_id)
+with check ((select auth.uid()) = patient_id);
+
+create policy "Doctors view temporarily shared patient symptoms"
+on public.patient_symptoms for select
+to authenticated
+using (
+  exists (
+    select 1 from public.patient_record_shares share
+    where share.doctor_id = (select auth.uid())
+      and share.patient_id = patient_symptoms.patient_id
+      and share.status = 'active'
+      and share.access_expires_at > now()
   )
 );
 

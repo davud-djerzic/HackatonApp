@@ -5,3 +5,12 @@ verify_jwt = false
 
 [functions.sendgrid-events]
 verify_jwt = false
+
+[functions.patient-ai-search]
+verify_jwt = false
+
+[functions.extract-medical-document]
+verify_jwt = false
+
+[functions.differential-assessment]
+verify_jwt = false

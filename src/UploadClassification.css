@@ -1,0 +1,93 @@
+.document-tags {
+  display: flex !important;
+  gap: 5px;
+}
+
+.document-tags small:last-child {
+  background: #eef7f4;
+  color: #44766c;
+}
+
+.upload-dialog-overlay {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #102f2966;
+}
+
+.upload-dialog {
+  width: min(460px, 100%);
+  padding: 20px;
+}
+
+.upload-dialog > p:not(.eyebrow) {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.upload-dialog label {
+  display: block;
+  margin: 14px 0 6px;
+  color: #50645e;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.upload-dialog select {
+  width: 100%;
+}
+
+.selected-upload {
+  margin-top: 14px;
+  border-radius: 8px;
+  padding: 11px;
+  background: #f3f8f6;
+}
+
+.selected-upload strong,
+.selected-upload small {
+  display: block;
+}
+
+.selected-upload strong {
+  font-size: 11px;
+}
+
+.selected-upload small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.upload-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 16px;
+}
+
+.upload-dialog-actions .primary {
+  margin: 0;
+}
+
+.shared-filter > div {
+  display: flex;
+  gap: 6px;
+}
+
+@media (max-width: 650px) {
+  .shared-filter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .shared-filter > div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
