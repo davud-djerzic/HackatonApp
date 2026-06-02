@@ -53,6 +53,21 @@ Tabela `doctor_patient_access` ostaje dostupna za buduci tok u kojem pacijent
 moze odobriti doktoru pregled prethodnih nalaza. Trenutno slanje novog PDF nalaza
 na email registrovanog pacijenta ne zahtijeva trajnu vezu.
 
+## Privremeni pristup nalazima kodom
+
+Za hackathon tok pokrenite jos i `supabase/share-code-flow.sql` u Supabase SQL
+Editoru. Nije potreban deploy frontenda: aplikacija moze ostati na
+`http://localhost:5173`.
+
+1. Pacijent se prijavi i klikne **Generisi kod**.
+2. Kod vrijedi 10 minuta i moze se iskoristiti samo jednom.
+3. Doktor se prijavi, unese kod i odmah dobije pregled svih nalaza pacijenta.
+4. Pristup doktora automatski istice nakon 60 minuta.
+5. Otvaranje PDF previewa se biljezi u tabeli `document_access_log`.
+
+PDF ostaje u privatnom Supabase Storage bucketu. Doktor ga cita samo kroz
+privremeni pristup; fajl se ne kopira u njegov profil i ne salje emailom.
+
 ## SendGrid
 
 1. Kreirajte SendGrid API key sa dozvolom za slanje emaila.

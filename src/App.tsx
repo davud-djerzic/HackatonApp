@@ -4,9 +4,12 @@ import "./App.css";
 import "./AuthPanel.css";
 import "./AuthState.css";
 import "./DocumentPreview.css";
+import "./RecordSharingPanels.css";
 import AuthPanel from "./AuthPanel";
+import { DoctorSharedRecordsPanel, PatientShareCodePanel } from "./RecordSharingPanels";
 import { createDocumentPreviewUrl, loadMyDocuments, uploadOwnDocument } from "./lib/documents";
 import { sendPatientReport } from "./lib/reports";
+import type { SharedDocument } from "./lib/sharing";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
 type Role = "patient" | "doctor";
@@ -160,6 +163,15 @@ function App() {
     }
   }
 
+  async function previewSharedDocument(document: SharedDocument) {
+    try {
+      const signedUrl = await createDocumentPreviewUrl(document.storagePath);
+      setPreview({ title: document.title, url: signedUrl });
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "PDF preview nije dostupan.");
+    }
+  }
+
   if (!authReady) return <main className="auth-shell"><p>Provjera prijave...</p></main>;
   if (isSupabaseConfigured && !hasSession) return <AuthPanel />;
   if (isSupabaseConfigured && profileError) return <main className="auth-shell"><section className="panel auth-state"><h2>Profil nije dostupan</h2><p>{profileError}</p><button className="primary" onClick={() => supabase?.auth.signOut()}>Odjavi se</button></section></main>;
@@ -219,6 +231,7 @@ function App() {
               <article><span className="stat-icon amber">N</span><div><b>{documents.filter((item) => item.status === "Novi nalaz").length}</b><small>Nova nalaza</small></div></article>
               <article><span className="stat-icon blue">@</span><div><b>Povezan</b><small>{currentProfile?.inboxAlias || "Privatni CareTrace inbox"}</small></div></article>
             </section>
+            {isSupabaseConfigured && <PatientShareCodePanel />}
             <section className="panel documents">
               <div className="section-head"><div><p className="eyebrow">MEDICINSKA ARHIVA</p><h2>Moji dokumenti</h2></div><span>{visibleDocuments.length} dokumenata</span></div>
               <div className="filters"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Pretrazi nalaze ili ordinacije..." /><select value={category} onChange={(event) => setCategory(event.target.value)}><option>Svi dokumenti</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></div>
@@ -226,7 +239,10 @@ function App() {
             </section>
           </>
         ) : (
-          <DoctorView title={reportTitle} setTitle={setReportTitle} category={reportCategory} setCategory={setReportCategory} note={reportNote} setNote={setReportNote} onSubmit={sendReport} sent={sent} documents={documents} patientEmail={patientEmail} setPatientEmail={setPatientEmail} reportFile={reportFile} setReportFile={setReportFile} sendError={sendError} isSending={isSending} />
+          <>
+            {isSupabaseConfigured && <DoctorSharedRecordsPanel onPreview={previewSharedDocument} />}
+            <DoctorView title={reportTitle} setTitle={setReportTitle} category={reportCategory} setCategory={setReportCategory} note={reportNote} setNote={setReportNote} onSubmit={sendReport} sent={sent} documents={documents} patientEmail={patientEmail} setPatientEmail={setPatientEmail} reportFile={reportFile} setReportFile={setReportFile} sendError={sendError} isSending={isSending} />
+          </>
         )}
         <footer>CareTrace zdravstveni dosije | Prototip za sigurno cuvanje medicinske dokumentacije</footer>
       </main>
