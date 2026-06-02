@@ -5,3 +5,18 @@ verify_jwt = false
 
 [functions.sendgrid-events]
 verify_jwt = false
+
+[functions.send-password-reset-code]
+verify_jwt = false
+
+[functions.confirm-password-reset]
+verify_jwt = false
+
+[functions.verify-access-code]
+verify_jwt = false
+
+[functions.ai-health-summary]
+verify_jwt = false
+
+[functions.doctor-write]
+verify_jwt = false

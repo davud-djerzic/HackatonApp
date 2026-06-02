@@ -51,7 +51,9 @@ create table if not exists public.medical_documents (
   title text not null,
   category text not null,
   storage_path text not null,
-  source text not null check (source in ('email', 'patient_upload', 'doctor_upload')),
+  source text not null check (
+    source in ('email', 'patient_upload', 'doctor_upload')
+  ),
   sender_email text,
   notes text,
   created_at timestamptz not null default now()
@@ -115,6 +117,21 @@ alter table public.email_deliveries
   add constraint email_deliveries_status_check
   check (status in ('requested', 'accepted', 'delivered', 'failed'));
 
+create table if not exists public.password_reset_codes (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  code_hash text not null,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists password_reset_codes_email_created_idx
+  on public.password_reset_codes (email, created_at desc);
+
+alter table public.password_reset_codes enable row level security;
+revoke all on public.password_reset_codes from anon, authenticated;
+
 create table if not exists public.email_delivery_events (
   id uuid primary key default gen_random_uuid(),
   delivery_id uuid not null references public.email_deliveries(id) on delete cascade,
@@ -138,12 +155,9 @@ begin
   insert into public.profiles (id, role, full_name, inbox_alias)
   values (
     new.id,
-    case when new.raw_user_meta_data ->> 'role' = 'doctor' then 'doctor' else 'patient' end,
+    'patient',
     coalesce(new.raw_user_meta_data ->> 'full_name', split_part(coalesce(new.email, 'CareTrace korisnik'), '@', 1)),
-    case
-      when new.raw_user_meta_data ->> 'role' = 'doctor' then null
-      else new.id::text || '@inbox.caretrace.app'
-    end
+    new.id::text || '@inbox.caretrace.app'
   )
   on conflict (id) do nothing;
   return new;
@@ -159,8 +173,14 @@ create trigger on_auth_user_created
 insert into public.profiles (id, role, full_name, inbox_alias)
 select
   users.id,
-  case when users.raw_user_meta_data ->> 'role' = 'doctor' then 'doctor' else 'patient' end,
-  coalesce(users.raw_user_meta_data ->> 'full_name', split_part(coalesce(users.email, 'CareTrace korisnik'), '@', 1)),
+  case
+    when users.raw_user_meta_data ->> 'role' = 'doctor' then 'doctor'
+    else 'patient'
+  end,
+  coalesce(
+    users.raw_user_meta_data ->> 'full_name',
+    split_part(coalesce(users.email, 'CareTrace korisnik'), '@', 1)
+  ),
   case
     when users.raw_user_meta_data ->> 'role' = 'doctor' then null
     else users.id::text || '@inbox.caretrace.app'

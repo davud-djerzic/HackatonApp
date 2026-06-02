@@ -1,20 +1,15 @@
 # CareTrace React + Supabase + SendGrid
 
-CareTrace cuva medicinske dokumente u privatnom Supabase Storage bucketu.
-Doktor salje PDF kroz aplikaciju, pacijent dobija sigurnu email obavijest, a
-dokument ostaje u njegovom dosijeu. Medicinski PDF se ne salje kao email
-attachment.
+CareTrace je mobilno prilagodjena web aplikacija za pacijente. Pacijent se
+registruje i prijavljuje emailom i lozinkom, cuva nalaze u privatnom Supabase
+Storage bucketu i moze resetovati lozinku putem 6-cifrenog sigurnosnog koda
+poslanog na email (SendGrid Edge Function).
 
-## Produkcijski tok
+## Pacijentski tok
 
-1. Doktor se prijavi kroz Supabase Auth i unese email registrovanog pacijenta.
-2. `send-patient-report` Edge Function provjeri JWT, ulogu doktora i pronadje
-   CareTrace pacijenta prema email adresi.
-3. PDF se sprema u privatni `medical-documents` Storage bucket.
-4. Baza dobija dokument, obavijest i audit zapis email isporuke.
-5. SendGrid Mail Send API salje pacijentu email sa linkom na CareTrace login.
-6. Opcionalni potpisani SendGrid Event Webhook upisuje `delivered`, `bounce` i
-   `dropped` dogadjaje bez medicinskih podataka.
+1. Pocetna stranica: **Prijava** ili **Registracija** (samo pacijent).
+2. Nakon prijave pacijent vidi svoj dosije, uploaduje dokumente i pregleda PDF.
+3. **Zaboravili ste lozinku?** — unos emaila, 6-cifreni kod na email, nova lozinka.
 
 ## Lokalni frontend
 
@@ -26,32 +21,50 @@ npm.cmd run dev
 
 Unesite URL i publishable key vaseg Supabase projekta u `.env.local`.
 
+## Hackathon mock (brzo testiranje bez produkcijske konfiguracije)
+
+Za hackathon možete brzo testirati aplikaciju koristeći demo tokove i lokalne mockove:
+
+1. Kopirajte `.env.example` u `.env.local` i podesite sledeće vrednosti (ili ih ostavite prazne za demo):
+
+```bash
+cp .env.example .env.local
+```
+
+2. Uverite se da je `VITE_DEMO_LOGIN=true` u `.env.local` (omogućava prijavu sa bilo kojim emailom).
+
+3. Pokrenite frontend:
+
+```bash
+npm install
+npm run dev
+```
+
+4. Otvorite `http://localhost:5173` na telefonu za pacijenta (mobile-first). Napravite demo nalog bilo kojim emailom i prijavite se.
+
+5. U aplikaciji, idite na sekciju `Pristup` i generišite pristupni kod.
+
+6. Na računaru otvorite `http://localhost:5173/#pristupdoktora` i unesite generisani kod da biste pristupili doktorskog prikazu (desktop view).
+
+7. AI funkcionalnost: nije potreban stvarni AI ključ za rad mock-a — aplikacija koristi fallback tekst. Ako želite testirati Google Gemini, postavite `GEMINI_API_KEY` u `supabase/functions/.env` ili u deployment secrets.
+
+Napomena: Nemojte pohranjivati privatne ključeve u git; koristite `.env.local` i dodajte ga u `.gitignore`.
+
 ## Postavljanje baze
 
 1. Kreirajte Supabase projekt.
 2. U SQL Editoru pokrenite `supabase/schema.sql`.
-3. Pokrenite frontend i otvorite ekran **Registracija**.
-4. Kreirajte jedan nalog kao doktor i jedan kao pacijent. Aplikacija salje
-   `full_name` i `role`, a SQL trigger automatski kreira odgovarajuci zapis u
-   tabeli `profiles`.
-5. Za hackathon tok bez email potvrde otvorite Supabase Dashboard i idite na
-   `Authentication > Providers > Email`. Iskljucite `Confirm email`. Novi
-   korisnik ce odmah nakon registracije dobiti aktivnu sesiju.
+3. Pokrenite frontend — pocetni ekran je **Registracija / Prijava**.
+4. Kreirajte pacijentski nalog. SQL trigger automatski kreira `profiles` zapis
+   sa ulogom `patient`.
+5. Za testiranje bez email potvrde: Supabase Dashboard →
+   `Authentication > Providers > Email` → iskljucite `Confirm email`.
 
-Za rucno kreiranje test korisnika kroz Supabase Dashboard koristite metadata
-vrijednosti:
-
-```json
-{ "full_name": "Dr. Amila M.", "role": "doctor" }
-```
+Metadata za rucno kreiranje test pacijenta:
 
 ```json
 { "full_name": "Emir Hadzic", "role": "patient" }
 ```
-
-Tabela `doctor_patient_access` ostaje dostupna za buduci tok u kojem pacijent
-moze odobriti doktoru pregled prethodnih nalaza. Trenutno slanje novog PDF nalaza
-na email registrovanog pacijenta ne zahtijeva trajnu vezu.
 
 ## SendGrid
 
@@ -65,11 +78,22 @@ supabase secrets set SENDGRID_FROM_EMAIL=verified-sender@example.com
 supabase secrets set APP_URL=https://your-caretrace-app.example.com
 ```
 
-4. Deploy funkcije za slanje:
+4. Deploy funkcija:
 
 ```powershell
+supabase functions deploy send-password-reset-code
+supabase functions deploy confirm-password-reset
 supabase functions deploy send-patient-report
 ```
+
+### Reset lozinke (sigurnosni kod)
+
+1. U SQL Editoru pokrenite `supabase/migrations/20260602120000_patient_only_password_reset.sql`
+   (ili cijeli `schema.sql` koji sada ukljucuje `password_reset_codes`).
+2. Deployajte `send-password-reset-code` i `confirm-password-reset`.
+3. U aplikaciji: Prijava → **Zaboravili ste lozinku?** → email → kod iz emaila → nova lozinka.
+4. Ako Edge Functions nisu deployane, aplikacija koristi Supabase Auth OTP fallback
+   (potrebno ukljuciti email OTP u Auth postavkama projekta).
 
 ## SendGrid Event Webhook
 
